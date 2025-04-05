@@ -11,24 +11,57 @@ import {
   Alert,
   Snackbar,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Grid,
+  IconButton,
+  Tooltip,
+  Chip,
 } from "@mui/material";
 import {
   Add as AddIcon,
   DeleteSweep as DeleteAllIcon,
   Refresh as RefreshIcon,
+  Close as CloseIcon,
+  Info as InfoIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
 } from "@mui/icons-material";
 import SessionCard from "./components/SessionCard";
 import * as api from "./services/api";
 
 function App() {
   const [sessions, setSessions] = useState([]);
+  const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [healthStatus, setHealthStatus] = useState(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
+
+  // Dialog state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState("");
+
+  // Check health status
+  const checkHealth = async () => {
+    try {
+      const health = await api.checkHealth();
+      setHealthStatus(health.status === "ok");
+    } catch (error) {
+      setHealthStatus(false);
+    }
+  };
 
   const fetchSessions = async () => {
     try {
@@ -44,25 +77,56 @@ function App() {
     }
   };
 
+  const fetchImages = async () => {
+    try {
+      setLoading(true);
+      const data = await api.listImages();
+      setImages(data);
+    } catch (err) {
+      console.error("Failed to fetch images:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    checkHealth();
     fetchSessions();
+    fetchImages();
   }, []);
 
   const handleCreateSession = async () => {
+    if (!selectedImage) {
+      setSnackbar({
+        open: true,
+        message: "Please select an image",
+        severity: "error",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
-      const newSession = await api.createSession();
+      const config = {
+        image_name: selectedImage,
+      };
+
+      const newSession = await api.createSession(config);
       setSessions((prev) => [...prev, newSession]);
       setSnackbar({
         open: true,
         message: "New session created successfully!",
         severity: "success",
       });
+      setCreateDialogOpen(false);
+      setSelectedImage("");
     } catch (err) {
       setError("Failed to create session");
       setSnackbar({
         open: true,
-        message: "Failed to create session",
+        message:
+          "Failed to create session: " +
+          (err.response?.data?.error || err.message),
         severity: "error",
       });
     } finally {
@@ -122,6 +186,15 @@ function App() {
     setSnackbar({ ...snackbar, open: false });
   };
 
+  const handleOpenCreateDialog = () => {
+    setCreateDialogOpen(true);
+  };
+
+  const handleCloseCreateDialog = () => {
+    setCreateDialogOpen(false);
+    setSelectedImage("");
+  };
+
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
@@ -129,10 +202,24 @@ function App() {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Session Manager
           </Typography>
+          {healthStatus !== null && (
+            <Box mr={2}>
+              <Chip
+                icon={healthStatus ? <CheckCircleIcon /> : <ErrorIcon />}
+                label={healthStatus ? "Server Online" : "Server Offline"}
+                color={healthStatus ? "success" : "error"}
+                variant="outlined"
+              />
+            </Box>
+          )}
           <Button
             color="inherit"
             startIcon={<RefreshIcon />}
-            onClick={fetchSessions}
+            onClick={() => {
+              fetchSessions();
+              fetchImages();
+              checkHealth();
+            }}
           >
             Refresh
           </Button>
@@ -154,10 +241,10 @@ function App() {
           >
             <Box>
               <Typography variant="h5" gutterBottom>
-                Manage Todo App Sessions
+                Manage Container Sessions
               </Typography>
               <Typography variant="body1" color="text.secondary">
-                Create and manage isolated instances of the Todo application.
+                Create and manage isolated containers with any Docker image.
               </Typography>
             </Box>
             <Box>
@@ -165,7 +252,7 @@ function App() {
                 variant="contained"
                 color="primary"
                 startIcon={<AddIcon />}
-                onClick={handleCreateSession}
+                onClick={handleOpenCreateDialog}
                 disabled={loading}
                 sx={{ mr: 2 }}
               >
@@ -213,6 +300,84 @@ function App() {
           )}
         </Box>
       </Container>
+
+      {/* Create Session Dialog */}
+      <Dialog
+        open={createDialogOpen}
+        onClose={handleCloseCreateDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Create New Session
+          <IconButton
+            aria-label="close"
+            onClick={handleCloseCreateDialog}
+            sx={{
+              position: "absolute",
+              right: 8,
+              top: 8,
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box mt={2}>
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel id="image-select-label">Docker Image</InputLabel>
+                  <Select
+                    labelId="image-select-label"
+                    id="image-select"
+                    value={selectedImage}
+                    label="Docker Image"
+                    onChange={(e) => setSelectedImage(e.target.value)}
+                  >
+                    {images.map((image) => (
+                      <MenuItem
+                        key={image.id}
+                        value={image.name + ":" + image.tag}
+                      >
+                        {image.name}:{image.tag}
+                        <Tooltip
+                          title={`Exposed ports: ${
+                            image.exposed_ports?.join(", ") || "None"
+                          }`}
+                        >
+                          <IconButton size="small" sx={{ ml: 1 }}>
+                            <InfoIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ display: "block", mt: 1 }}
+                >
+                  The session manager will automatically detect and allocate
+                  ports based on the image's exposed ports.
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCreateDialog}>Cancel</Button>
+          <Button
+            onClick={handleCreateSession}
+            color="primary"
+            variant="contained"
+            disabled={!selectedImage || loading}
+          >
+            {loading ? <CircularProgress size={24} /> : "Create"}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}

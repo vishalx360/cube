@@ -31,6 +31,33 @@ func getRandomAvailablePort() (int, error) {
 	return port, nil
 }
 
+// GetAvailablePort returns a single available port
+func (pm *PortManager) GetAvailablePort() (int, error) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	port, err := getRandomAvailablePort()
+	if err != nil {
+		return 0, ErrNoPortsAvailable
+	}
+
+	if !pm.usedPorts[port] {
+		pm.usedPorts[port] = true
+		return port, nil
+	}
+
+	// In the unlikely case that this port is already used, try again
+	return pm.GetAvailablePort()
+}
+
+// ReleasePort releases a single previously used port
+func (pm *PortManager) ReleasePort(port int) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	delete(pm.usedPorts, port)
+}
+
 // GetAvailablePorts returns 3 available ports (frontend, backend, postgres)
 func (pm *PortManager) GetAvailablePorts() (frontendPort, backendPort, postgresPort int, err error) {
 	pm.mu.Lock()

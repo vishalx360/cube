@@ -1,0 +1,40 @@
+[INFO] 2025/04/06 00:02:49 Starting session manager
+[INFO] 2025/04/06 00:02:49 Using configuration: ServerPort=8080
+[INFO] 2025/04/06 00:02:49 Initializing Docker manager
+[INFO] 2025/04/06 00:02:49 Initializing port manager
+[INFO] 2025/04/06 00:02:49 Initializing session service
+[INFO] 2025/04/06 00:02:49 Initializing REST handler
+[INFO] 2025/04/06 00:02:49 Creating router
+[INFO] 2025/04/06 00:02:49 Registering routes
+[INFO] 2025/04/06 00:02:49 Starting server on :8080
+2025/04/06 00:02:53 [vishalk-MacBook-Pro/7iYGbqGPg5-000001] "GET http://localhost:8080/health HTTP/1.1" from [::1]:64669 - 200 15B in 175.375µs
+[DEBUG] 2025/04/06 00:02:58 Handling ListImages request
+[INFO] 2025/04/06 00:02:58 Listing Docker images
+[INFO] 2025/04/06 00:02:59 Listed 31 Docker images
+2025/04/06 00:02:59 [vishalk-MacBook-Pro/7iYGbqGPg5-000002] "GET http://localhost:8080/api/v1/images HTTP/1.1" from [::1]:64671 - 200 4726B in 685.719875ms
+[DEBUG] 2025/04/06 00:03:05 Handling ListSessions request
+[INFO] 2025/04/06 00:03:05 Listed 0 sessions
+2025/04/06 00:03:05 [vishalk-MacBook-Pro/7iYGbqGPg5-000003] "GET http://localhost:8080/api/v1/sessions HTTP/1.1" from [::1]:64673 - 200 16B in 86.667µs
+[DEBUG] 2025/04/06 00:03:18 Handling CreateSession request
+[INFO] 2025/04/06 00:03:18 Creating session for image: nginx
+[INFO] 2025/04/06 00:03:18 Creating container for image nginx with 1 port mappings
+[DEBUG] 2025/04/06 00:03:18 Port 1: 64695 -> 8080/tcp
+[INFO] 2025/04/06 00:03:19 Created session f3e9af1a-fe57-423a-8b85-5d54b122ef2d for image nginx
+2025/04/06 00:03:19 [vishalk-MacBook-Pro/7iYGbqGPg5-000004] "POST http://localhost:8080/api/v1/sessions HTTP/1.1" from [::1]:64693 - 201 353B in 549.470125ms
+[DEBUG] 2025/04/06 00:04:43 Handling CreateSession request
+[INFO] 2025/04/06 00:04:43 Creating session for image: nginx
+[INFO] 2025/04/06 00:04:43 Creating container for image nginx with 1 port mappings
+[DEBUG] 2025/04/06 00:04:43 Port 1: 64967 -> 8080/tcp
+[INFO] 2025/04/06 00:04:43 Created session 00086231-4092-46be-9640-210b39539b28 for image nginx
+2025/04/06 00:04:43 [vishalk-MacBook-Pro/7iYGbqGPg5-000005] "POST http://localhost:8080/api/v1/sessions HTTP/1.1" from [::1]:64966 - 201 353B in 423.971083ms
+[INFO] 2025/04/06 00:10:38 Shutting down server...
+[INFO] 2025/04/06 00:10:38 Deleting all 2 sessions
+[INFO] 2025/04/06 00:10:38 Stopping container 4fa7c0fd0416beb9eeb3708de36aa105cd642a6c39b7430b907c076feb7b2d0f for session f3e9af1a-fe57-423a-8b85-5d54b122ef2d
+[INFO] 2025/04/06 00:10:38 Removing container 4fa7c0fd0416beb9eeb3708de36aa105cd642a6c39b7430b907c076feb7b2d0f for session f3e9af1a-fe57-423a-8b85-5d54b122ef2d
+[INFO] 2025/04/06 00:10:38 Releasing ports for session f3e9af1a-fe57-423a-8b85-5d54b122ef2d
+[INFO] 2025/04/06 00:10:38 Stopping container b87551489a73513720dde38738b0a834fc94873e05f1ffedf56c882d9a781683 for session 00086231-4092-46be-9640-210b39539b28
+[INFO] 2025/04/06 00:10:38 Removing container b87551489a73513720dde38738b0a834fc94873e05f1ffedf56c882d9a781683 for session 00086231-4092-46be-9640-210b39539b28
+[INFO] 2025/04/06 00:10:38 Releasing ports for session 00086231-4092-46be-9640-210b39539b28
+[INFO] 2025/04/06 00:10:38 Deleted 2 sessions
+[INFO] 2025/04/06 00:10:38 Deleted 2 sessions
+[INFO] 2025/04/06 00:10:38 Server shutdown complete

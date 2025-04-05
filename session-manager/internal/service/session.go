@@ -342,12 +342,59 @@ func (ss *SessionService) ListSessions() []*model.Session {
 	defer ss.mu.Unlock()
 
 	sessions := make([]*model.Session, 0, len(ss.sessions))
-	for _, session := range ss.sessions {
-		sessions = append(sessions, session)
+	sessionsToRemove := []string{}
+
+	for id, session := range ss.sessions {
+		// Verify if the container still exists
+		exists, err := ss.dockerManager.ContainerExists(session.ContainerID)
+		if err != nil {
+			ss.logger.Warn("Failed to check if container %s exists: %v", session.ContainerID, err)
+			// Keep the session but mark it as potentially problematic
+			session.Status = "unknown"
+		} else if !exists {
+			ss.logger.Info("Container %s for session %s no longer exists, marking as removed",
+				session.ContainerID, session.ID)
+
+			// Option 1: Auto-remove the session
+			sessionsToRemove = append(sessionsToRemove, id)
+
+			// Option 2: Keep the session but mark it as stopped/removed
+			// session.Status = "removed"
+		}
+
+		// Add to results list if not marked for removal
+		if len(sessionsToRemove) == 0 || !contains(sessionsToRemove, id) {
+			sessions = append(sessions, session)
+		}
 	}
 
-	ss.logger.Info("Listed %d sessions", len(sessions))
+	// Clean up any sessions with containers that no longer exist
+	for _, id := range sessionsToRemove {
+		ss.logger.Info("Auto-cleaning session %s with missing container", id)
+		session := ss.sessions[id]
+
+		// Release allocated ports
+		for _, p := range session.Ports {
+			ss.portManager.ReleasePort(p.HostPort)
+		}
+
+		// Remove from sessions map
+		delete(ss.sessions, id)
+	}
+
+	ss.logger.Info("Listed %d sessions (removed %d orphaned sessions)",
+		len(sessions), len(sessionsToRemove))
 	return sessions
+}
+
+// Helper function to check if a string is in a slice
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 // ListImages returns a list of all available Docker images

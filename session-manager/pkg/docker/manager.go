@@ -234,3 +234,15 @@ func (dm *DockerManager) InspectContainer(containerID string) (map[string]interf
 
 	return containerInfo[0], nil
 }
+
+// ContainerExists checks if a container with the given ID exists
+func (dm *DockerManager) ContainerExists(containerID string) (bool, error) {
+	cmd := exec.Command("docker", "ps", "-a", "--filter", fmt.Sprintf("id=%s", containerID), "--format", "{{.ID}}")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, fmt.Errorf("failed to check if container exists: %v, output: %s", err, output)
+	}
+
+	// If the output is empty, the container doesn't exist
+	return strings.TrimSpace(string(output)) != "", nil
+}

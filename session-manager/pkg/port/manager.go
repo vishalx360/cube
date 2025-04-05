@@ -1,0 +1,64 @@
+package port
+
+import (
+	"errors"
+	"net"
+	"sync"
+)
+
+type PortManager struct {
+	mu        sync.Mutex
+	usedPorts map[int]bool
+}
+
+var ErrNoPortsAvailable = errors.New("no ports available")
+
+func NewPortManager() *PortManager {
+	return &PortManager{
+		usedPorts: make(map[int]bool),
+	}
+}
+
+// getRandomAvailablePort asks the OS for a free port
+func getRandomAvailablePort() (int, error) {
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return 0, err
+	}
+	defer listener.Close()
+
+	port := listener.Addr().(*net.TCPAddr).Port
+	return port, nil
+}
+
+// GetAvailablePorts returns 3 available ports (frontend, backend, postgres)
+func (pm *PortManager) GetAvailablePorts() (frontendPort, backendPort, postgresPort int, err error) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	allocated := make([]int, 0, 3)
+
+	for len(allocated) < 3 {
+		port, err := getRandomAvailablePort()
+		if err != nil {
+			return 0, 0, 0, ErrNoPortsAvailable
+		}
+
+		if !pm.usedPorts[port] {
+			pm.usedPorts[port] = true
+			allocated = append(allocated, port)
+		}
+	}
+
+	return allocated[0], allocated[1], allocated[2], nil
+}
+
+// ReleasePorts releases previously used ports
+func (pm *PortManager) ReleasePorts(ports ...int) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	for _, port := range ports {
+		delete(pm.usedPorts, port)
+	}
+}

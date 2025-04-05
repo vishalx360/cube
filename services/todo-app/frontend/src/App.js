@@ -18,7 +18,36 @@ import {
 import { Delete as DeleteIcon, Edit as EditIcon } from "@mui/icons-material";
 import axios from "axios";
 
-const API_URL = "http://localhost:3000/api";
+// Get the backend URL from the current window location
+// This makes it work regardless of which port it's running on
+const getBackendUrl = () => {
+  // Extract current hostname and port
+  const { hostname, port: frontendPortStr } = window.location;
+  const frontendPort = parseInt(frontendPortStr, 10);
+
+  // If we can't determine the port, default to the session manager's predefined URL structure
+  // This requires that the frontend URLs from the session manager include the port
+  if (isNaN(frontendPort)) {
+    // Try to extract it from pathname or use default
+    const pathParts = window.location.pathname.split("/");
+    if (pathParts.length > 1 && !isNaN(parseInt(pathParts[1], 10))) {
+      return `http://${hostname}:${parseInt(pathParts[1], 10) + 1}/api`;
+    }
+
+    // If all else fails, fallback to default port 3000
+    console.warn(
+      "Could not determine backend port, falling back to default port 3000",
+    );
+    return `http://${hostname}:3000/api`;
+  }
+
+  // The backend port is always frontend port + 1 based on how our session manager allocates ports
+  const backendPort = frontendPort + 1;
+
+  return `http://${hostname}:${backendPort}/api`;
+};
+
+const API_URL = getBackendUrl();
 
 function App() {
   const [todos, setTodos] = useState([]);
@@ -31,6 +60,7 @@ function App() {
 
   const fetchTodos = async () => {
     try {
+      console.log("Fetching todos from:", API_URL + "/todos");
       const response = await axios.get(`${API_URL}/todos`);
       setTodos(response.data);
     } catch (error) {

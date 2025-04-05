@@ -1,113 +1,116 @@
-# Todo App with React Frontend and Express Backend
+# Session Manager for Todo App
 
-This container runs a full-stack Todo application with a React frontend and Express backend with PostgreSQL.
+A multi-tenant session manager for dynamically spinning up isolated Todo application instances.
 
 ## Project Structure
 
 ```
 .
-├── backend/           # Backend server code
-│   ├── app.js        # Express server and API endpoints
-│   ├── init-db.sh    # Database initialization script
-│   └── package.json  # Node.js dependencies
-├── frontend/         # React frontend code
-│   ├── public/       # Static files
-│   ├── src/          # React components
-│   └── package.json  # React dependencies
-├── Dockerfile        # Docker configuration
-└── README.md         # Project documentation
+├── services/
+│   └── todo-app/                # Todo application (Express + PostgreSQL)
+│       ├── backend/            # Express backend
+│       ├── frontend/           # React frontend
+│       └── Dockerfile          # Docker config for todo-app
+│
+├── session-manager/            # Go service for managing sessions
+│   ├── cmd/                    # Command line entrypoints
+│   ├── internal/               # Internal packages
+│   │   ├── api/                # API handlers
+│   │   ├── model/              # Data models
+│   │   └── service/            # Business logic
+│   └── pkg/                    # Reusable packages
+│       ├── docker/             # Docker management
+│       └── port/               # Port allocation
+│
+└── session-manager-ui/         # React UI for session management
+    ├── public/                 # Static assets
+    └── src/                    # React components
 ```
 
-## Services
+## Components
 
-- PostgreSQL: Running on port 5432
-- Express API: Running on port 3000
-- React Frontend: Running on port 80
+### 1. Todo Application
 
-## Building the Container
+A full-stack Todo application with:
+
+- React frontend
+- Express backend with REST API
+- PostgreSQL database
+- Containerized with Docker
+
+### 2. Session Manager (Go Service)
+
+A Go service that provides:
+
+- On-demand container provisioning
+- Dynamic port allocation
+- Session lifecycle management
+- REST API for session operations
+
+### 3. Session Manager UI
+
+A React-based UI that provides:
+
+- User-friendly interface for session management
+- Create/list/delete sessions
+- View session details and access endpoints
+
+## Getting Started
+
+### Prerequisites
+
+- Docker
+- Go 1.16+
+- Node.js 14+
+- npm 6+
+
+### Setup
+
+1. Build the Todo application image:
 
 ```bash
+cd services/todo-app
 docker build -t todo-app .
 ```
 
-## Running the Container
+2. Start the Session Manager service:
 
 ```bash
-docker run -p 80:80 -p 3000:3000 -p 5432:5432 todo-app
+cd session-manager
+go run cmd/main.go
 ```
 
-## Accessing the Application
+3. Start the Session Manager UI:
 
-- Frontend: http://localhost
-- API Documentation: http://localhost:3000/api
+```bash
+cd session-manager-ui
+npm install
+npm start
+```
+
+4. Access the UI at http://localhost:3000
 
 ## API Endpoints
 
-### Get all todos
+The Session Manager exposes the following API endpoints:
 
-```
-GET http://localhost:3000/api/todos
-```
+- `POST /sessions` - Create a new session
+- `GET /sessions` - List all active sessions
+- `DELETE /sessions/{id}` - Delete a specific session
+- `DELETE /sessions/all` - Delete all sessions
 
-### Get a single todo
+## Session Information
 
-```
-GET http://localhost:3000/api/todos/:id
-```
+Each session includes:
 
-### Create a new todo
+- A frontend UI running on a unique port
+- A backend API running on a unique port
+- A PostgreSQL instance running on a unique port
+- Session metadata (ID, creation time, status)
 
-```
-POST http://localhost:3000/api/todos
-Content-Type: application/json
+## Use Cases
 
-{
-    "title": "New Todo",
-    "description": "Description of the todo"
-}
-```
-
-### Update a todo
-
-```
-PUT http://localhost:3000/api/todos/:id
-Content-Type: application/json
-
-{
-    "title": "Updated Todo",
-    "description": "Updated description",
-    "completed": true
-}
-```
-
-### Delete a todo
-
-```
-DELETE http://localhost:3000/api/todos/:id
-```
-
-## Database Information
-
-- Host: localhost
-- Port: 5432
-- Database: todos
-- Username: todo_user
-- Password: todo_password
-
-## Features
-
-- Modern React frontend with Material-UI
-- Full CRUD operations for todos
-- Real-time updates
-- Responsive design
-- Mark todos as complete/incomplete
-- Edit and delete todos
-- Form validation
-- Error handling
-
-## Notes
-
-- The container automatically initializes the database with sample todos
-- The API includes full CRUD operations for todos
-- CORS is enabled for all origins
-- The frontend is built for production and served using a static file server
+- Development environments: Create isolated Todo app instances for testing
+- Demos: Spin up dedicated instances for different clients
+- Education: Provide isolated environments for students
+- QA: Test different scenarios in parallel without interference

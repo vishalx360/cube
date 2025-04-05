@@ -6,8 +6,16 @@ const bodyParser = require("body-parser");
 const app = express();
 const port = 3000;
 
+// CORS configuration
+const corsOptions = {
+  origin: "*", // Allow all origins
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+};
+
 // Middleware
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 
 // PostgreSQL connection

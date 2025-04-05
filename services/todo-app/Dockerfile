@@ -1,5 +1,4 @@
-# Use Ubuntu as base image
-FROM ubuntu:22.04
+FROM node:20
 
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -10,10 +9,6 @@ RUN apt-get update && apt-get install -y \
     postgresql-contrib \
     curl \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js 20
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs
 
 # Create directories for the application
 WORKDIR /app

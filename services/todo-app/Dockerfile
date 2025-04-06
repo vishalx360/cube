@@ -3,12 +3,22 @@ FROM node:20
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install required packages
+# Install required packages and Caddy (from official Caddy repo)
 RUN apt-get update && apt-get install -y \
     postgresql \
     postgresql-contrib \
     curl \
+    apt-transport-https \
+    gnupg \
+    ca-certificates \
+    && curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/caddy-stable-archive-keyring.gpg] https://dl.cloudsmith.io/public/caddy/stable/deb/debian any-version main" | tee /etc/apt/sources.list.d/caddy-stable.list \
+    && apt-get update \
+    && apt-get install -y caddy \
     && rm -rf /var/lib/apt/lists/*
+
+# Install serve package globally
+RUN npm install -g serve@14.2.1
 
 # Create directories for the application
 WORKDIR /app
@@ -23,6 +33,10 @@ COPY frontend/package*.json ./frontend/
 COPY frontend/public ./frontend/public/
 COPY frontend/src ./frontend/src/
 
+# Copy Caddyfile and start script
+COPY Caddyfile /etc/caddy/Caddyfile
+COPY start.sh /start.sh
+
 # Install backend dependencies
 WORKDIR /app/backend
 RUN npm install
@@ -32,20 +46,13 @@ WORKDIR /app/frontend
 RUN npm install
 RUN npm run build
 
-# Make init-db.sh executable
+# Make scripts executable
 WORKDIR /app/backend
 RUN chmod +x init-db.sh
+RUN chmod +x /start.sh
 
-# Create a script to start both services
-RUN echo '#!/bin/bash\n\
-service postgresql start\n\
-./init-db.sh\n\
-cd /app/backend && npm start &\n\
-cd /app/frontend && npx serve -s build -l 80 &\n\
-tail -f /dev/null' > /start.sh && chmod +x /start.sh
-
-# Expose ports
-EXPOSE 80 3000 5432
+# Expose only the main web port
+EXPOSE 80
 
 # Start the services
 CMD ["/start.sh"] 

@@ -1,0 +1,15 @@
+{
+  auto_https off
+}
+
+:80 {
+  # API requests to backend
+  handle /api/* {
+    reverse_proxy localhost:3000
+  }
+
+  # Frontend requests to serve
+  handle /* {
+    reverse_proxy localhost:5000
+  }
+} 

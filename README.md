@@ -1,12 +1,23 @@
-# Cube: Session Manager for Todo App
+# Cube: Container Management System
 
-A multi-tenant session manager for dynamically spinning up isolated Todo application instances.
+![Cube Poster](./cube-poster.png)
+
+A powerful container management system that provides container orchestration, metrics monitoring, and resource management through a clean REST API. The system includes an optional modern React-based UI for visual management.
+
+## Core Features
+
+- Container lifecycle management
+- Real-time system and container metrics
+- Dynamic port allocation and management
+- RESTful API for all operations
+- Multi-tenant support
+- Resource monitoring and management
 
 ## Project Structure
 
 ```
 .
-├── cube-core/                 # Go service for managing sessions (formerly session-manager)
+├── cube-core/                 # Core Go service for container management
 │   ├── cmd/                   # Command line entrypoints
 │   │   └── main.go            # Main application entry point
 │   ├── go.mod                 # Go module definition
@@ -22,52 +33,69 @@ A multi-tenant session manager for dynamically spinning up isolated Todo applica
 │   │   └── util/              # Utility functions
 │   └── server.log             # Server logs
 │
-├── cube-ui/                   # React UI for session management (formerly session-manager-ui)
-│   ├── package.json           # NPM package definition
-│   ├── package-lock.json      # NPM dependencies lock file
-│   ├── public/                # Static assets
-│   └── src/                   # React components
-│       ├── App.js             # Main React application
-│       ├── components/        # UI components
-│       ├── index.js           # React entry point
-│       └── services/          # API service clients
-│
-└── services/
-    └── todo-app/              # Todo application
-        ├── backend/           # Backend server
-        ├── frontend/          # React frontend
-        ├── Dockerfile         # Docker config for todo-app
-        ├── Caddyfile          # Caddy server configuration
-        └── start.sh           # Startup script
+└── cube-ui/                   # Optional React UI for visual management
+    ├── package.json           # NPM package definition
+    ├── package-lock.json      # NPM dependencies lock file
+    ├── public/                # Static assets
+    └── src/                   # React components
+        ├── App.js             # Main React application
+        ├── components/        # UI components
+        │   ├── SystemMetrics/ # System resource monitoring
+        │   └── AllContainers/ # Docker container management
+        ├── hooks/             # React Query hooks
+        ├── index.js           # React entry point
+        └── services/          # API service clients
 ```
 
 ## Components
 
-### 1. Todo Application
+### 1. Cube Core (Go Service)
 
-A full-stack Todo application with:
+The heart of the system, providing:
 
-- React frontend
-- Express backend with REST API
-- PostgreSQL database
-- Containerized with Docker
-
-### 2. Cube Core (Go Service)
-
-A Go service that provides:
-
-- On-demand container provisioning
+- Container lifecycle management
 - Dynamic port allocation
-- Session lifecycle management
-- REST API for session operations
+- System metrics collection and monitoring
+- Docker container orchestration
+- RESTful API for all operations
+- Multi-tenant isolation
 
-### 3. Cube UI
+### 2. Cube UI (Optional)
 
-A React-based UI that provides:
+A modern React-based UI that provides:
 
-- User-friendly interface for session management
-- Create/list/delete sessions
-- View session details and access endpoints
+- Visual container management interface
+- Real-time system metrics monitoring:
+  - CPU usage
+  - Memory utilization
+  - Disk usage
+  - Docker container stats
+- Container operations:
+  - List all containers (managed and unmanaged)
+  - Container metrics and details
+  - Container lifecycle control
+
+## API Endpoints
+
+The core of Cube is its REST API:
+
+### Container Management
+
+- `GET /containers` - List all Docker containers
+- `DELETE /containers/{id}` - Delete a specific container
+- `POST /containers` - Create a new container
+
+### Session Management
+
+- `POST /sessions` - Create a new managed session
+- `GET /sessions` - List all managed sessions
+- `DELETE /sessions/{id}` - Delete a specific session
+- `DELETE /sessions` - Delete all sessions
+
+### Metrics
+
+- `GET /metrics/system` - Get system-wide metrics
+- `GET /metrics/containers/{id}` - Get metrics for a specific container
 
 ## Getting Started
 
@@ -75,26 +103,17 @@ A React-based UI that provides:
 
 - Docker
 - Go 1.16+
-- Node.js 14+
-- npm 6+
+- Node.js 14+ (for UI only)
+- npm 6+ (for UI only)
 
-### Setup
-
-1. Build the Todo application image:
-
-```bash
-cd services/todo-app
-docker build -t todo-app .
-```
-
-2. Start the Cube Core service:
+### Setup Core Service
 
 ```bash
 cd cube-core
 go run cmd/main.go
 ```
 
-3. Start the Cube UI:
+### Setup UI (Optional)
 
 ```bash
 cd cube-ui
@@ -102,32 +121,34 @@ npm install
 npm start
 ```
 
-4. Access the UI at http://localhost:3000
-
-## API Endpoints
-
-The Cube Core service exposes the following API endpoints:
-
-- `POST /sessions` - Create a new session
-- `GET /sessions` - List all active sessions
-- `DELETE /sessions/{id}` - Delete a specific session
-- `DELETE /sessions/all` - Delete all sessions
-
-## Session Information
-
-Each session includes:
-
-- A frontend UI running on a unique port
-- A backend API running on a unique port
-- A PostgreSQL instance running on a unique port
-- Session metadata (ID, creation time, status)
+Access the UI at http://localhost:3000
 
 ## Use Cases
 
-- Development environments: Create isolated Todo app instances for testing
-- Demos: Spin up dedicated instances for different clients
-- Education: Provide isolated environments for students
-- QA: Test different scenarios in parallel without interference
+- Container Orchestration: Manage Docker containers with a clean API
+- Development Environments: Create isolated container instances
+- Resource Monitoring: Track system and container resource usage
+- Multi-tenant Applications: Manage isolated container instances for different users
+- CI/CD Environments: Programmatically manage containers for testing
+- Demo Environments: Spin up isolated instances for demonstrations
+
+## Integration
+
+Cube can be integrated into any system through its REST API. The API is designed to be:
+
+- RESTful
+- Stateless
+- Secure
+- Scalable
+- Well-documented
+
+Example integrations:
+
+- CI/CD pipelines
+- Development tools
+- Testing frameworks
+- Custom management UIs
+- Monitoring systems
 
 ```
 

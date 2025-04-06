@@ -49,6 +49,8 @@ A powerful container management system that provides container orchestration, me
 
 ## Components
 
+![Cube Architecture](./cube-arch.png)
+
 ### 1. Cube Core (Go Service)
 
 The heart of the system, providing:

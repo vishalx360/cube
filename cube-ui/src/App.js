@@ -200,7 +200,7 @@ function App() {
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Session Manager
+            Cube
           </Typography>
           {healthStatus !== null && (
             <Box mr={2}>
@@ -359,8 +359,8 @@ function App() {
                   color="text.secondary"
                   sx={{ display: "block", mt: 1 }}
                 >
-                  The session manager will automatically detect and allocate
-                  ports based on the image's exposed ports.
+                  The Cube Core will automatically detect and allocate ports
+                  based on the image's exposed ports.
                 </Typography>
               </Grid>
             </Grid>

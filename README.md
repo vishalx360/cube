@@ -1,4 +1,4 @@
-# Session Manager for Todo App
+# Cube: Session Manager for Todo App
 
 A multi-tenant session manager for dynamically spinning up isolated Todo application instances.
 
@@ -6,25 +6,39 @@ A multi-tenant session manager for dynamically spinning up isolated Todo applica
 
 ```
 .
-├── services/
-│   └── todo-app/                # Todo application (Express + PostgreSQL)
-│       ├── backend/            # Express backend
-│       ├── frontend/           # React frontend
-│       └── Dockerfile          # Docker config for todo-app
+├── cube-core/                 # Go service for managing sessions (formerly session-manager)
+│   ├── cmd/                   # Command line entrypoints
+│   │   └── main.go            # Main application entry point
+│   ├── go.mod                 # Go module definition
+│   ├── go.sum                 # Go dependencies checksum
+│   ├── internal/              # Internal packages
+│   │   ├── config/            # Configuration management
+│   │   ├── handler/           # API handlers
+│   │   ├── model/             # Data models
+│   │   └── service/           # Business logic
+│   ├── pkg/                   # Reusable packages
+│   │   ├── docker/            # Docker management
+│   │   ├── port/              # Port allocation
+│   │   └── util/              # Utility functions
+│   └── server.log             # Server logs
 │
-├── session-manager/            # Go service for managing sessions
-│   ├── cmd/                    # Command line entrypoints
-│   ├── internal/               # Internal packages
-│   │   ├── api/                # API handlers
-│   │   ├── model/              # Data models
-│   │   └── service/            # Business logic
-│   └── pkg/                    # Reusable packages
-│       ├── docker/             # Docker management
-│       └── port/               # Port allocation
+├── cube-ui/                   # React UI for session management (formerly session-manager-ui)
+│   ├── package.json           # NPM package definition
+│   ├── package-lock.json      # NPM dependencies lock file
+│   ├── public/                # Static assets
+│   └── src/                   # React components
+│       ├── App.js             # Main React application
+│       ├── components/        # UI components
+│       ├── index.js           # React entry point
+│       └── services/          # API service clients
 │
-└── session-manager-ui/         # React UI for session management
-    ├── public/                 # Static assets
-    └── src/                    # React components
+└── services/
+    └── todo-app/              # Todo application
+        ├── backend/           # Backend server
+        ├── frontend/          # React frontend
+        ├── Dockerfile         # Docker config for todo-app
+        ├── Caddyfile          # Caddy server configuration
+        └── start.sh           # Startup script
 ```
 
 ## Components
@@ -38,7 +52,7 @@ A full-stack Todo application with:
 - PostgreSQL database
 - Containerized with Docker
 
-### 2. Session Manager (Go Service)
+### 2. Cube Core (Go Service)
 
 A Go service that provides:
 
@@ -47,7 +61,7 @@ A Go service that provides:
 - Session lifecycle management
 - REST API for session operations
 
-### 3. Session Manager UI
+### 3. Cube UI
 
 A React-based UI that provides:
 
@@ -73,17 +87,17 @@ cd services/todo-app
 docker build -t todo-app .
 ```
 
-2. Start the Session Manager service:
+2. Start the Cube Core service:
 
 ```bash
-cd session-manager
+cd cube-core
 go run cmd/main.go
 ```
 
-3. Start the Session Manager UI:
+3. Start the Cube UI:
 
 ```bash
-cd session-manager-ui
+cd cube-ui
 npm install
 npm start
 ```
@@ -92,7 +106,7 @@ npm start
 
 ## API Endpoints
 
-The Session Manager exposes the following API endpoints:
+The Cube Core service exposes the following API endpoints:
 
 - `POST /sessions` - Create a new session
 - `GET /sessions` - List all active sessions
@@ -114,3 +128,7 @@ Each session includes:
 - Demos: Spin up dedicated instances for different clients
 - Education: Provide isolated environments for students
 - QA: Test different scenarios in parallel without interference
+
+```
+
+```

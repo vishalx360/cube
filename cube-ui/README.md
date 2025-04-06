@@ -1,10 +1,10 @@
-# Session Manager UI
+# Cube UI
 
 A React-based user interface for managing Todo App sessions.
 
 ## Overview
 
-This application provides a user-friendly interface for managing Todo App sessions created by the Session Manager Go service. It allows users to:
+This application provides a user-friendly interface for managing Todo App sessions created by the Cube Core Go service. It allows users to:
 
 - Create new sessions with a single click
 - View details of all active sessions
@@ -20,7 +20,7 @@ This application provides a user-friendly interface for managing Todo App sessio
 
 ## Getting Started
 
-1. Make sure the Session Manager Go service is running on port 8080
+1. Make sure the Cube Core Go service is running on port 8080
 2. Install dependencies:
    ```
    npm install
@@ -54,9 +54,9 @@ This application provides a user-friendly interface for managing Todo App sessio
 - Loading indicators for async operations
 - Confirmation dialogs for destructive actions
 
-## Integration with Session Manager Go Service
+## Integration with Cube Core Go Service
 
-This UI communicates with the Session Manager Go service using REST API calls:
+This UI communicates with the Cube Core Go service using REST API calls:
 
 - `GET /sessions` - Fetch all active sessions
 - `POST /sessions` - Create a new session
@@ -71,4 +71,4 @@ The application uses the standard React development workflow:
 - `npm build` - Build for production
 - `npm test` - Run tests
 
-The proxy is configured to forward API requests to the Session Manager service running on port 8080.
+The proxy is configured to forward API requests to the Cube Core service running on port 8080.

@@ -1,17 +1,23 @@
 package docker
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 )
 
 type DockerManager struct {
-	// No need for client field
+	client *client.Client
+	ctx    context.Context
 }
 
 type PortMapping struct {
@@ -21,59 +27,91 @@ type PortMapping struct {
 }
 
 func NewDockerManager() (*DockerManager, error) {
-	// Check if docker is available
-	cmd := exec.Command("docker", "version")
-	if err := cmd.Run(); err != nil {
+	// Create Docker client using environment variables
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create docker client: %v", err)
+	}
+
+	// Ping the Docker daemon to make sure connection works
+	ctx := context.Background()
+	_, err = cli.Ping(ctx)
+	if err != nil {
 		return nil, fmt.Errorf("docker is not available: %v", err)
 	}
 
-	return &DockerManager{}, nil
+	return &DockerManager{
+		client: cli,
+		ctx:    ctx,
+	}, nil
 }
 
 func (dm *DockerManager) CreateContainer(imageName string, portMappings []PortMapping) (string, error) {
-	args := []string{"run", "-d"} // Detached mode
+	// Prepare port bindings
+	portBindings := nat.PortMap{}
+	exposedPorts := nat.PortSet{}
 
-	// Add port mappings
 	for _, mapping := range portMappings {
 		protocol := mapping.Protocol
 		if protocol == "" {
 			protocol = "tcp"
 		}
 
-		portArg := fmt.Sprintf("%d:%d/%s", mapping.HostPort, mapping.ContainerPort, protocol)
-		args = append(args, "-p", portArg)
+		containerPort := nat.Port(fmt.Sprintf("%d/%s", mapping.ContainerPort, protocol))
+		hostPort := strconv.Itoa(mapping.HostPort)
+
+		portBindings[containerPort] = []nat.PortBinding{
+			{
+				HostIP:   "0.0.0.0",
+				HostPort: hostPort,
+			},
+		}
+
+		exposedPorts[containerPort] = struct{}{}
 	}
 
-	// Add image name
-	args = append(args, imageName)
+	// Create container configuration
+	containerConfig := &container.Config{
+		Image:        imageName,
+		ExposedPorts: exposedPorts,
+	}
 
-	// Run the container
-	cmd := exec.Command("docker", args...)
-	output, err := cmd.CombinedOutput()
+	// Configure host settings including port bindings
+	hostConfig := &container.HostConfig{
+		PortBindings: portBindings,
+	}
+
+	// Create the container
+	resp, err := dm.client.ContainerCreate(
+		dm.ctx,
+		containerConfig,
+		hostConfig,
+		nil,
+		nil,
+		"",
+	)
 	if err != nil {
-		return "", fmt.Errorf("failed to create container: %v, output: %s", err, output)
+		return "", fmt.Errorf("failed to create container: %v", err)
 	}
 
-	// Return container ID
-	return strings.TrimSpace(string(output)), nil
+	// Start the container
+	if err := dm.client.ContainerStart(dm.ctx, resp.ID, types.ContainerStartOptions{}); err != nil {
+		return "", fmt.Errorf("failed to start container: %v", err)
+	}
+
+	return resp.ID, nil
 }
 
 func (dm *DockerManager) StopContainer(containerID string) error {
-	cmd := exec.Command("docker", "stop", containerID)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to stop container: %v, output: %s", err, output)
-	}
-	return nil
+	// Default timeout is 10 seconds
+	timeoutSeconds := 10
+	return dm.client.ContainerStop(dm.ctx, containerID, container.StopOptions{Timeout: &timeoutSeconds})
 }
 
 func (dm *DockerManager) RemoveContainer(containerID string) error {
-	cmd := exec.Command("docker", "rm", "-f", containerID)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to remove container: %v, output: %s", err, output)
-	}
-	return nil
+	return dm.client.ContainerRemove(dm.ctx, containerID, types.ContainerRemoveOptions{
+		Force: true,
+	})
 }
 
 type Container struct {
@@ -91,43 +129,38 @@ type PortInfo struct {
 }
 
 func (dm *DockerManager) ListContainers() ([]Container, error) {
-	// Command to list all containers in JSON format
-	cmd := exec.Command("docker", "ps", "-a", "--format", "{{json .}}")
-
-	output, err := cmd.CombinedOutput()
+	containers, err := dm.client.ContainerList(dm.ctx, types.ContainerListOptions{
+		All: true,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list containers: %v, output: %s", err, output)
+		return nil, fmt.Errorf("failed to list containers: %v", err)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	var containers []Container
-
-	for _, line := range lines {
-		if line == "" {
-			continue
+	var result []Container
+	for _, c := range containers {
+		container := Container{
+			ID:      c.ID,
+			Image:   c.Image,
+			Status:  c.Status,
+			Created: time.Unix(c.Created, 0),
 		}
 
-		var data map[string]interface{}
-		if err := json.Unmarshal([]byte(line), &data); err != nil {
-			continue
+		// Parse port information
+		var ports []PortInfo
+		for _, p := range c.Ports {
+			port := PortInfo{
+				HostPort:      int(p.PublicPort),
+				ContainerPort: int(p.PrivatePort),
+				Protocol:      p.Type,
+			}
+			ports = append(ports, port)
 		}
+		container.Ports = ports
 
-		id, _ := data["ID"].(string)
-		image, _ := data["Image"].(string)
-		status, _ := data["Status"].(string)
-		createdStr, _ := data["CreatedAt"].(string)
-
-		created, _ := time.Parse(time.RFC3339, createdStr)
-
-		containers = append(containers, Container{
-			ID:      id,
-			Image:   image,
-			Status:  status,
-			Created: created,
-		})
+		result = append(result, container)
 	}
 
-	return containers, nil
+	return result, nil
 }
 
 type ImageInfo struct {
@@ -140,66 +173,60 @@ type ImageInfo struct {
 }
 
 func (dm *DockerManager) ListImages() ([]ImageInfo, error) {
-	// Command to list all images with specific format
-	cmd := exec.Command("docker", "images", "--format", "{{.ID}}|{{.Repository}}|{{.Tag}}|{{.Size}}|{{.CreatedAt}}")
-
-	output, err := cmd.CombinedOutput()
+	images, err := dm.client.ImageList(dm.ctx, types.ImageListOptions{
+		All: true,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list images: %v, output: %s", err, output)
+		return nil, fmt.Errorf("failed to list images: %v", err)
 	}
 
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	var images []ImageInfo
-
-	for _, line := range lines {
-		if line == "" {
-			continue
+	var result []ImageInfo
+	for _, img := range images {
+		// Parse repository and tag from RepoTags (if available)
+		repository := "<none>"
+		tag := "<none>"
+		if len(img.RepoTags) > 0 {
+			parts := strings.Split(img.RepoTags[0], ":")
+			if len(parts) >= 2 {
+				repository = parts[0]
+				tag = parts[1]
+			}
 		}
 
-		parts := strings.Split(line, "|")
-		if len(parts) != 5 {
-			continue
-		}
+		// Format size to human-readable format
+		size := fmt.Sprintf("%.2f MB", float64(img.Size)/(1024*1024))
 
-		// Get exposed ports for the image
-		exposedPorts, _ := dm.getImageExposedPorts(parts[0])
+		// Get image creation time
+		createdAt := time.Unix(img.Created, 0).Format(time.RFC3339)
 
-		images = append(images, ImageInfo{
-			ID:           parts[0],
-			Repository:   parts[1],
-			Tag:          parts[2],
-			Size:         parts[3],
-			CreatedAt:    parts[4],
+		// Get exposed ports
+		exposedPorts, _ := dm.getImageExposedPorts(img.ID)
+
+		imageInfo := ImageInfo{
+			ID:           img.ID,
+			Repository:   repository,
+			Tag:          tag,
+			Size:         size,
+			CreatedAt:    createdAt,
 			ExposedPorts: exposedPorts,
-		})
+		}
+		result = append(result, imageInfo)
 	}
 
-	return images, nil
+	return result, nil
 }
 
 func (dm *DockerManager) getImageExposedPorts(imageID string) ([]int, error) {
-	cmd := exec.Command("docker", "image", "inspect", "--format", "{{json .Config.ExposedPorts}}", imageID)
-
-	output, err := cmd.CombinedOutput()
+	// Inspect the image to get exposed ports
+	inspect, _, err := dm.client.ImageInspectWithRaw(dm.ctx, imageID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to inspect image: %v, output: %s", err, output)
-	}
-
-	// Parse the port string
-	portsStr := strings.TrimSpace(string(output))
-	if portsStr == "null" || portsStr == "{}" {
-		return []int{}, nil
-	}
-
-	var portsMap map[string]interface{}
-	if err := json.Unmarshal([]byte(portsStr), &portsMap); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to inspect image: %v", err)
 	}
 
 	var ports []int
-	for portStr := range portsMap {
+	for portStr := range inspect.Config.ExposedPorts {
 		// Format is like "8080/tcp"
-		parts := strings.Split(portStr, "/")
+		parts := strings.Split(string(portStr), "/")
 		if len(parts) != 2 {
 			continue
 		}
@@ -216,33 +243,40 @@ func (dm *DockerManager) getImageExposedPorts(imageID string) ([]int, error) {
 }
 
 func (dm *DockerManager) InspectContainer(containerID string) (map[string]interface{}, error) {
-	cmd := exec.Command("docker", "container", "inspect", containerID)
-
-	output, err := cmd.CombinedOutput()
+	inspect, err := dm.client.ContainerInspect(dm.ctx, containerID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to inspect container: %v, output: %s", err, output)
+		return nil, fmt.Errorf("failed to inspect container: %v", err)
 	}
 
-	var containerInfo []map[string]interface{}
-	if err := json.Unmarshal(output, &containerInfo); err != nil {
+	// Convert the struct to a map to maintain compatibility with the original function
+	// This is not the most efficient approach but maintains the API signature
+	inspectJSON, err := json.Marshal(inspect)
+	if err != nil {
 		return nil, err
 	}
 
-	if len(containerInfo) == 0 {
-		return nil, errors.New("no container info returned")
+	var containerInfo map[string]interface{}
+	if err := json.Unmarshal(inspectJSON, &containerInfo); err != nil {
+		return nil, err
 	}
 
-	return containerInfo[0], nil
+	return containerInfo, nil
 }
 
 // ContainerExists checks if a container with the given ID exists
 func (dm *DockerManager) ContainerExists(containerID string) (bool, error) {
-	cmd := exec.Command("docker", "ps", "-a", "--filter", fmt.Sprintf("id=%s", containerID), "--format", "{{.ID}}")
-	output, err := cmd.CombinedOutput()
+	// Create a filter to search by container ID
+	filter := filters.NewArgs()
+	filter.Add("id", containerID)
+
+	containers, err := dm.client.ContainerList(dm.ctx, types.ContainerListOptions{
+		All:     true,
+		Filters: filter,
+	})
+
 	if err != nil {
-		return false, fmt.Errorf("failed to check if container exists: %v, output: %s", err, output)
+		return false, fmt.Errorf("failed to check if container exists: %v", err)
 	}
 
-	// If the output is empty, the container doesn't exist
-	return strings.TrimSpace(string(output)) != "", nil
+	return len(containers) > 0, nil
 }

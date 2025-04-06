@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -291,4 +292,65 @@ func (dm *DockerManager) ContainerExists(containerID string) (bool, error) {
 	}
 
 	return len(containers) > 0, nil
+}
+
+// CreateExec creates a new exec instance in a container
+func (dm *DockerManager) CreateExec(containerID string, config types.ExecConfig) (string, error) {
+	execConfig := types.ExecConfig{
+		Tty:          config.Tty,
+		AttachStdin:  config.AttachStdin,
+		AttachStdout: config.AttachStdout,
+		AttachStderr: config.AttachStderr,
+		Cmd:          config.Cmd,
+	}
+
+	exec, err := dm.client.ContainerExecCreate(dm.ctx, containerID, execConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to create exec: %v", err)
+	}
+
+	return exec.ID, nil
+}
+
+// ReadCloserWrapper wraps a io.Reader with a Close method
+type ReadCloserWrapper struct {
+	io.Reader
+	CloseFunc func()
+}
+
+// Close calls the wrapped Close function
+func (r ReadCloserWrapper) Close() error {
+	if r.CloseFunc != nil {
+		r.CloseFunc()
+	}
+	return nil
+}
+
+// StartExec starts a previously created exec instance and attaches to its IO streams
+func (dm *DockerManager) StartExec(execID string, stdin io.Reader) (io.ReadCloser, error) {
+	// Set up exec attachment
+	attachOpts := types.ExecStartCheck{
+		Detach: false,
+		Tty:    false,
+	}
+
+	// Attach to exec
+	resp, err := dm.client.ContainerExecAttach(dm.ctx, execID, attachOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to attach to exec: %v", err)
+	}
+
+	// If stdin is provided, pipe it to the exec's stdin
+	if stdin != nil {
+		go func() {
+			defer resp.CloseWrite()
+			io.Copy(resp.Conn, stdin)
+		}()
+	}
+
+	// Return a ReadCloser wrapper that properly closes the connection
+	return ReadCloserWrapper{
+		Reader:    resp.Reader,
+		CloseFunc: resp.Close,
+	}, nil
 }

@@ -40,6 +40,9 @@ func (h *RestHandler) RegisterRoutes(r chi.Router) {
 	// Containers
 	r.Get("/containers", h.ListAllContainers)
 	r.Delete("/containers/{id}", h.DeleteContainer)
+
+	// Container Terminal WebSocket
+	r.HandleFunc("/ws/containers/{id}", h.ContainerTerminal)
 }
 
 // ListSessions handles GET /api/v1/sessions
@@ -219,7 +222,49 @@ func writeJSON(w http.ResponseWriter, statusCode int, data interface{}) {
 
 // writeError writes an error response
 func writeError(w http.ResponseWriter, statusCode int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+	writeJSON(w, statusCode, map[string]string{"error": message})
+}
+
+// ContainerTerminal handles WebSocket connections for container terminal access
+func (h *RestHandler) ContainerTerminal(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("Handling ContainerTerminal WebSocket request")
+
+	// Check if this is a WebSocket request
+	if r.Header.Get("Upgrade") != "websocket" {
+		h.logger.Error("WebSocket upgrade header not found")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("WebSocket upgrade header not found"))
+		return
+	}
+
+	// Log headers for debugging
+	h.logger.Debug("WebSocket request headers:")
+	for name, values := range r.Header {
+		h.logger.Debug("  %s: %s", name, values)
+	}
+
+	// Get container ID from URL
+	containerID := chi.URLParam(r, "id")
+	if containerID == "" {
+		h.logger.Error("Container ID is required")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("container ID is required"))
+		return
+	}
+
+	h.logger.Info("Starting container terminal session for container: %s", containerID)
+
+	// Upgrade HTTP connection to WebSocket
+	if err := h.sessionService.HandleContainerTerminal(w, r, containerID); err != nil {
+		h.logger.Error("Failed to handle container terminal session: %v", err)
+		if util.IsNotFoundError(err) {
+			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte(err.Error()))
+			return
+		}
+
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
 }

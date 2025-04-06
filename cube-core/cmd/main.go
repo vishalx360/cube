@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 
@@ -69,13 +70,20 @@ func main() {
 
 	// Add CORS middleware
 	router.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000", "http://127.0.0.1:3000"},
+		AllowedOrigins:   []string{"http://localhost:3000", "http://127.0.0.1:3000", "*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "Upgrade", "Connection"},
+		ExposedHeaders:   []string{"Link", "Upgrade", "Connection"},
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not caught by any browsers
 	}))
+
+	// Check if docker command is installed
+	logger.Info("Checking if docker command is available")
+	if _, err := exec.LookPath("docker"); err != nil {
+		logger.Error("Docker command not found: %v", err)
+		log.Fatalf("Docker command not found: %v. Please make sure Docker is installed and available in PATH.", err)
+	}
 
 	// Create an API v1 subrouter
 	logger.Info("Registering routes")

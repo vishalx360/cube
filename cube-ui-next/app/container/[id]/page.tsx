@@ -1,9 +1,10 @@
 "use client";
 
+import React from 'react';
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { DatabaseInstance, listDatabases } from '@/lib/api';
-import Terminal from '@/components/Terminal';
+import { DatabaseInstance, listDatabases } from '../../../lib/api';
+import Terminal from '../../../components/Terminal/Terminal';
 import Link from 'next/link';
 
 export default function ContainerPage() {
@@ -17,6 +18,7 @@ export default function ContainerPage() {
         async function fetchInstance() {
             try {
                 const instances = await listDatabases();
+                console.log("Fetched instances:", instances);
                 const found = instances.find(i => i.id === id);
                 if (found) {
                     setInstance(found);
@@ -24,7 +26,8 @@ export default function ContainerPage() {
                     setError('Database instance not found');
                 }
             } catch (err) {
-                setError('Failed to fetch database instance');
+                console.error("Error fetching database instance:", err);
+                setError('Failed to fetch database instance. Check API connection.');
             } finally {
                 setLoading(false);
             }

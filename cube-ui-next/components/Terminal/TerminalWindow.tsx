@@ -1,8 +1,8 @@
 "use client"
 
-import TerminalUI from "@/components/Terminal/TerminalUi"
-import { Button } from '@/components/ui/button'
-import { Tabs, TabsContent, TabsList } from "@/components/ui/tabs"
+import TerminalUI from "./TerminalUi"
+import { Button } from '../../components/ui/button'
+import { Tabs, TabsContent, TabsList } from "../../components/ui/tabs"
 import { nanoid } from 'nanoid'
 import { useState } from 'react'
 import { FaPlus } from 'react-icons/fa'

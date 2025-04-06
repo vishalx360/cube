@@ -84,7 +84,7 @@ export default function ContainersTable({ containers, onContainerAction }: Conta
             </tr>
           </thead>
           <tbody>
-            {containers.map((container) => (
+            {containers?.map((container) => (
               <tr key={container.id} className="border-b border-gray-800">
                 <td className="py-4">{container.session_id || "-"}</td>
                 <td className="py-4">{container.id.substring(0, 12)}</td>
@@ -137,7 +137,7 @@ export default function ContainersTable({ containers, onContainerAction }: Conta
               </tr>
             ))}
 
-            {containers.length === 0 && (
+            {containers?.length === 0 && (
               <tr>
                 <td colSpan={8} className="py-8 text-center text-gray-400">
                   No containers found

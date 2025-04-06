@@ -24,6 +24,8 @@ import {
   IconButton,
   Tooltip,
   Chip,
+  ThemeProvider,
+  CssBaseline,
 } from "@mui/material";
 import {
   Add as AddIcon,
@@ -34,13 +36,17 @@ import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
 } from "@mui/icons-material";
-import SessionCard from "./components/SessionCard";
+import SystemMetrics from "./components/SystemMetrics";
+import AllContainers from "./components/AllContainers";
 import * as api from "./services/api";
+import theme from "./theme";
 
 function App() {
   const [sessions, setSessions] = useState([]);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
+  const [createSessionLoading, setCreateSessionLoading] = useState(false);
   const [error, setError] = useState(null);
   const [healthStatus, setHealthStatus] = useState(null);
   const [snackbar, setSnackbar] = useState({
@@ -106,7 +112,7 @@ function App() {
     }
 
     try {
-      setLoading(true);
+      setCreateSessionLoading(true);
       const config = {
         image_name: selectedImage,
       };
@@ -130,7 +136,7 @@ function App() {
         severity: "error",
       });
     } finally {
-      setLoading(false);
+      setCreateSessionLoading(false);
     }
   };
 
@@ -162,7 +168,7 @@ function App() {
     }
 
     try {
-      setLoading(true);
+      setDeleteAllLoading(true);
       const result = await api.deleteAllSessions();
       setSessions([]);
       setSnackbar({
@@ -178,7 +184,7 @@ function App() {
         severity: "error",
       });
     } finally {
-      setLoading(false);
+      setDeleteAllLoading(false);
     }
   };
 
@@ -196,199 +202,218 @@ function App() {
   };
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Cube
-          </Typography>
-          {healthStatus !== null && (
-            <Box mr={2}>
-              <Chip
-                icon={healthStatus ? <CheckCircleIcon /> : <ErrorIcon />}
-                label={healthStatus ? "Server Online" : "Server Offline"}
-                color={healthStatus ? "success" : "error"}
-                variant="outlined"
-              />
-            </Box>
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <Box sx={{ flexGrow: 1 }}>
+        <AppBar position="static">
+          <Toolbar>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              Cube
+            </Typography>
+            {healthStatus !== null && (
+              <Box mr={2}>
+                <Chip
+                  icon={healthStatus ? <CheckCircleIcon /> : <ErrorIcon />}
+                  label={healthStatus ? "Server Online" : "Server Offline"}
+                  color={healthStatus ? "success" : "error"}
+                  variant="outlined"
+                />
+              </Box>
+            )}
+            <Button
+              color="inherit"
+              startIcon={<RefreshIcon />}
+              onClick={() => {
+                fetchSessions();
+                fetchImages();
+                checkHealth();
+              }}
+            >
+              Refresh
+            </Button>
+          </Toolbar>
+        </AppBar>
+
+        <Container maxWidth="lg" sx={{ mt: 4 }}>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
           )}
-          <Button
-            color="inherit"
-            startIcon={<RefreshIcon />}
-            onClick={() => {
-              fetchSessions();
-              fetchImages();
-              checkHealth();
-            }}
-          >
-            Refresh
-          </Button>
-        </Toolbar>
-      </AppBar>
 
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            alignItems="center"
-          >
-            <Box>
-              <Typography variant="h5" gutterBottom>
-                Manage Container Sessions
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Create and manage isolated containers with any Docker image.
-              </Typography>
-            </Box>
-            <Box>
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<AddIcon />}
-                onClick={handleOpenCreateDialog}
-                disabled={loading}
-                sx={{ mr: 2 }}
-              >
-                New Session
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<DeleteAllIcon />}
-                onClick={handleDeleteAllSessions}
-                disabled={loading || sessions.length === 0}
-              >
-                Delete All
-              </Button>
-            </Box>
-          </Box>
-        </Paper>
-
-        {loading && (
-          <Box display="flex" justifyContent="center" my={4}>
-            <CircularProgress />
-          </Box>
-        )}
-
-        <Box mb={4}>
-          <Typography variant="h6" gutterBottom>
-            Active Sessions ({sessions.length})
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-
-          {sessions.length === 0 && !loading ? (
-            <Paper sx={{ p: 3, textAlign: "center" }}>
-              <Typography variant="body1" color="text.secondary">
-                No active sessions. Click "New Session" to create one.
-              </Typography>
-            </Paper>
-          ) : (
-            sessions.map((session) => (
-              <SessionCard
-                key={session.id}
-                session={session}
-                onDelete={handleDeleteSession}
-              />
-            ))
-          )}
-        </Box>
-      </Container>
-
-      {/* Create Session Dialog */}
-      <Dialog
-        open={createDialogOpen}
-        onClose={handleCloseCreateDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          Create New Session
-          <IconButton
-            aria-label="close"
-            onClick={handleCloseCreateDialog}
-            sx={{
-              position: "absolute",
-              right: 8,
-              top: 8,
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent>
-          <Box mt={2}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel id="image-select-label">Docker Image</InputLabel>
-                  <Select
-                    labelId="image-select-label"
-                    id="image-select"
-                    value={selectedImage}
-                    label="Docker Image"
-                    onChange={(e) => setSelectedImage(e.target.value)}
-                  >
-                    {images.map((image) => (
-                      <MenuItem
-                        key={image.id}
-                        value={image.name + ":" + image.tag}
-                      >
-                        {image.name}:{image.tag}
-                        <Tooltip
-                          title={`Exposed ports: ${
-                            image.exposed_ports?.join(", ") || "None"
-                          }`}
-                        >
-                          <IconButton size="small" sx={{ ml: 1 }}>
-                            <InfoIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Typography
-                  variant="caption"
-                  color="text.secondary"
-                  sx={{ display: "block", mt: 1 }}
-                >
-                  The Cube Core will automatically detect and allocate ports
-                  based on the image's exposed ports.
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Box
+              display="flex"
+              justifyContent="space-between"
+              alignItems="center"
+            >
+              <Box>
+                <Typography variant="h5" gutterBottom>
+                  Manage Container Sessions
                 </Typography>
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseCreateDialog}>Cancel</Button>
-          <Button
-            onClick={handleCreateSession}
-            color="primary"
-            variant="contained"
-            disabled={!selectedImage || loading}
-          >
-            {loading ? <CircularProgress size={24} /> : "Create"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+                <Typography variant="body1" color="text.secondary">
+                  Create and manage isolated containers with any Docker image.
+                </Typography>
+              </Box>
+              <Box>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  startIcon={createSessionLoading ? null : <AddIcon />}
+                  onClick={handleOpenCreateDialog}
+                  disabled={loading || createSessionLoading}
+                  sx={{ mr: 2 }}
+                >
+                  {createSessionLoading ? (
+                    <>
+                      <CircularProgress
+                        size={20}
+                        sx={{ mr: 1 }}
+                        color="inherit"
+                      />
+                      Creating...
+                    </>
+                  ) : (
+                    "New Session"
+                  )}
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={deleteAllLoading ? null : <DeleteAllIcon />}
+                  onClick={handleDeleteAllSessions}
+                  disabled={
+                    deleteAllLoading || loading || sessions.length === 0
+                  }
+                >
+                  {deleteAllLoading ? (
+                    <>
+                      <CircularProgress
+                        size={20}
+                        sx={{ mr: 1 }}
+                        color="error"
+                      />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete All"
+                  )}
+                </Button>
+              </Box>
+            </Box>
+          </Paper>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-      >
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Box>
+          {loading && (
+            <Box display="flex" justifyContent="center" my={4}>
+              <CircularProgress />
+            </Box>
+          )}
+
+          {/* Metrics Section */}
+          <SystemMetrics />
+
+          {/* All Containers Section */}
+          <AllContainers />
+        </Container>
+
+        {/* Create Session Dialog */}
+        <Dialog
+          open={createDialogOpen}
+          onClose={handleCloseCreateDialog}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            Create New Session
+            <IconButton
+              aria-label="close"
+              onClick={handleCloseCreateDialog}
+              sx={{
+                position: "absolute",
+                right: 8,
+                top: 8,
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            <Box mt={2}>
+              <Grid container spacing={3}>
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel id="image-select-label">
+                      Docker Image
+                    </InputLabel>
+                    <Select
+                      labelId="image-select-label"
+                      id="image-select"
+                      value={selectedImage}
+                      label="Docker Image"
+                      onChange={(e) => setSelectedImage(e.target.value)}
+                    >
+                      {images.map((image) => (
+                        <MenuItem
+                          key={image.id}
+                          value={image.name + ":" + image.tag}
+                        >
+                          {image.name}:{image.tag}
+                          <Tooltip
+                            title={`Exposed ports: ${
+                              image.exposed_ports?.join(", ") || "None"
+                            }`}
+                          >
+                            <IconButton size="small" sx={{ ml: 1 }}>
+                              <InfoIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: "block", mt: 1 }}
+                  >
+                    The Cube Core will automatically detect and allocate ports
+                    based on the image's exposed ports.
+                  </Typography>
+                </Grid>
+              </Grid>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseCreateDialog}>Cancel</Button>
+            <Button
+              onClick={handleCreateSession}
+              color="primary"
+              variant="contained"
+              disabled={!selectedImage || createSessionLoading}
+            >
+              {createSessionLoading ? (
+                <>
+                  <CircularProgress size={20} sx={{ mr: 1 }} color="inherit" />
+                  Creating...
+                </>
+              ) : (
+                "Create"
+              )}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={6000}
+          onClose={handleCloseSnackbar}
+        >
+          <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Box>
+    </ThemeProvider>
   );
 }
 

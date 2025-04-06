@@ -28,16 +28,18 @@ func NewRestHandler(sessionService *service.SessionService) *RestHandler {
 func (h *RestHandler) RegisterRoutes(r chi.Router) {
 	h.logger.Info("Registering routes")
 
-	r.Route("/api/v1", func(r chi.Router) {
-		// Sessions
-		r.Get("/sessions", h.ListSessions)
-		r.Post("/sessions", h.CreateSession)
-		r.Delete("/sessions/{id}", h.DeleteSession)
-		r.Delete("/sessions", h.DeleteAllSessions)
+	// Sessions
+	r.Get("/sessions", h.ListSessions)
+	r.Post("/sessions", h.CreateSession)
+	r.Delete("/sessions/{id}", h.DeleteSession)
+	r.Delete("/sessions", h.DeleteAllSessions)
 
-		// Images
-		r.Get("/images", h.ListImages)
-	})
+	// Images
+	r.Get("/images", h.ListImages)
+
+	// Containers
+	r.Get("/containers", h.ListAllContainers)
+	r.Delete("/containers/{id}", h.DeleteContainer)
 }
 
 // ListSessions handles GET /api/v1/sessions
@@ -152,6 +154,55 @@ func (h *RestHandler) ListImages(w http.ResponseWriter, r *http.Request) {
 
 	response := model.ListImagesResponse{
 		Images: images,
+	}
+
+	writeJSON(w, http.StatusOK, response)
+}
+
+// ListAllContainers handles GET /api/v1/containers
+func (h *RestHandler) ListAllContainers(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("Handling ListAllContainers request")
+
+	containers, err := h.sessionService.ListAllContainers(r.Context())
+	if err != nil {
+		h.logger.Error("Failed to list all containers: %v", err)
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response := model.ListAllContainersResponse{
+		Containers: containers,
+	}
+
+	writeJSON(w, http.StatusOK, response)
+}
+
+// DeleteContainer handles DELETE /api/v1/containers/{id}
+func (h *RestHandler) DeleteContainer(w http.ResponseWriter, r *http.Request) {
+	h.logger.Debug("Handling DeleteContainer request")
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		h.logger.Error("Container ID is required")
+		writeError(w, http.StatusBadRequest, "container ID is required")
+		return
+	}
+
+	h.logger.Info("Deleting container: %s", id)
+	if err := h.sessionService.DeleteContainer(r.Context(), id); err != nil {
+		h.logger.Error("Failed to delete container: %v", err)
+
+		if util.IsNotFoundError(err) {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response := map[string]string{
+		"message": "container deleted successfully",
 	}
 
 	writeJSON(w, http.StatusOK, response)

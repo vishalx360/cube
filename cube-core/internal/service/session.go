@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -438,4 +440,101 @@ func getLocalIP() (string, error) {
 	}
 
 	return "", fmt.Errorf("no suitable IP address found")
+}
+
+// ListAllContainers returns all Docker containers, including those not managed by the application
+func (s *SessionService) ListAllContainers(ctx context.Context) ([]model.ContainerInfo, error) {
+	containers, err := s.dockerManager.ListContainers(true) // true to include all containers, not just running ones
+	if err != nil {
+		return nil, fmt.Errorf("failed to list containers: %v", err)
+	}
+
+	var containerInfos []model.ContainerInfo
+
+	for _, container := range containers {
+		// Check if this container belongs to a session
+		var sessionID string
+		for _, session := range s.sessions {
+			if session.ContainerID == container.ID {
+				sessionID = session.ID
+				break
+			}
+		}
+
+		// Get container name without leading slash
+		name := ""
+		if len(container.Names) > 0 {
+			name = container.Names[0]
+			if strings.HasPrefix(name, "/") {
+				name = name[1:]
+			}
+		}
+
+		containerInfo := model.ContainerInfo{
+			ID:        container.ID,
+			SessionID: sessionID,
+			Name:      name,
+			Image:     container.Image,
+			Command:   container.Command,
+			Status:    container.Status,
+			State:     container.State,
+			Created:   container.Created,
+			CreatedAt: time.Unix(container.Created, 0),
+			IsManaged: sessionID != "", // If sessionID is not empty, it's managed by our application
+		}
+
+		// Convert ports
+		for _, port := range container.Ports {
+			containerInfo.Ports = append(containerInfo.Ports, model.Port{
+				HostPort:      port.HostPort,
+				ContainerPort: port.ContainerPort,
+				Protocol:      port.Protocol,
+			})
+		}
+
+		containerInfos = append(containerInfos, containerInfo)
+	}
+
+	return containerInfos, nil
+}
+
+// DeleteContainer deletes a Docker container by ID, whether managed by the application or not
+func (s *SessionService) DeleteContainer(ctx context.Context, containerID string) error {
+	// First check if this container exists
+	exists, err := s.dockerManager.ContainerExists(containerID)
+	if err != nil {
+		return fmt.Errorf("failed to check if container exists: %v", err)
+	}
+
+	if !exists {
+		return util.ErrNotFound
+	}
+
+	// Check if this container belongs to a session
+	var sessionID string
+	s.mu.Lock()
+	for id, session := range s.sessions {
+		if session.ContainerID == containerID {
+			sessionID = id
+			break
+		}
+	}
+	s.mu.Unlock()
+
+	// If the container belongs to a session, use DeleteSession to handle it properly
+	if sessionID != "" {
+		return s.DeleteSession(sessionID)
+	}
+
+	// Otherwise, just stop and remove the container
+	if err := s.dockerManager.StopContainer(containerID); err != nil {
+		s.logger.Warn("Failed to stop container %s: %v", containerID, err)
+		// Continue to removal even if stop fails
+	}
+
+	if err := s.dockerManager.RemoveContainer(containerID); err != nil {
+		return fmt.Errorf("failed to remove container: %v", err)
+	}
+
+	return nil
 }

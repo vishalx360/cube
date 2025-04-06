@@ -69,3 +69,76 @@ export const checkHealth = async () => {
     throw error;
   }
 };
+
+// New metrics API methods
+export const getSystemMetrics = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/metrics/system`);
+    console.log("System metrics response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching system metrics:", error);
+    throw error;
+  }
+};
+
+export const getContainerMetrics = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/metrics/containers`);
+    console.log("Container metrics response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching container metrics:", error);
+    throw error;
+  }
+};
+
+export const getContainerMetricsForSession = async (sessionId) => {
+  try {
+    const response = await axios.get(
+      `${API_BASE_URL}/metrics/containers/${sessionId}`,
+    );
+    console.log(`Metrics for session ${sessionId}:`, response.data);
+
+    // Check the response structure and extract metrics properly
+    if (response.data && response.data.metrics) {
+      return response.data.metrics;
+    } else if (response.data && typeof response.data === "object") {
+      // If metrics aren't in a 'metrics' field, but the response is an object,
+      // assume the entire response is the metrics object
+      return response.data;
+    } else {
+      console.error("Unexpected metrics response format:", response.data);
+      throw new Error("Invalid metrics format received from server");
+    }
+  } catch (error) {
+    console.error(`Error fetching metrics for session ${sessionId}:`, error);
+    throw error;
+  }
+};
+
+// New function to list all Docker containers
+export const listAllContainers = async () => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/containers`);
+    console.log("All containers response:", response.data);
+    return response.data.containers || [];
+  } catch (error) {
+    console.error("Error fetching all containers:", error);
+    throw error;
+  }
+};
+
+// New function to delete any container
+export const deleteContainer = async (containerId) => {
+  try {
+    const response = await axios.delete(
+      `${API_BASE_URL}/containers/${containerId}`,
+    );
+    console.log(`Container ${containerId} deleted`);
+    return response.data;
+  } catch (error) {
+    console.error(`Error deleting container ${containerId}:`, error);
+    throw error;
+  }
+};

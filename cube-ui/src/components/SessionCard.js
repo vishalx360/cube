@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Card,
   CardContent,
@@ -13,14 +13,18 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  CircularProgress,
 } from "@mui/material";
 import {
   DeleteOutline as DeleteIcon,
   Launch as LaunchIcon,
   Link as LinkIcon,
 } from "@mui/icons-material";
+import SessionMetrics from "./SessionMetrics";
 
 const SessionCard = ({ session, onDelete }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleString();
@@ -34,6 +38,18 @@ const SessionCard = ({ session, onDelete }) => {
     session.container_id && session.container_id.length > 12
       ? session.container_id.substring(0, 12)
       : session.container_id;
+
+  const handleDelete = async () => {
+    if (isDeleting) return; // Prevent multiple clicks
+
+    try {
+      setIsDeleting(true);
+      await onDelete(session.id);
+    } catch (error) {
+      console.error("Error deleting session:", error);
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <Card sx={{ mb: 2 }}>
@@ -118,15 +134,30 @@ const SessionCard = ({ session, onDelete }) => {
             )}
           </Grid>
 
+          {/* Add the SessionMetrics component if the session is running */}
+          {session.status === "running" && (
+            <Grid item xs={12}>
+              <SessionMetrics sessionId={session.id} />
+            </Grid>
+          )}
+
           <Grid item xs={12}>
             <Box display="flex" justifyContent="flex-end">
               <Button
                 variant="outlined"
                 color="error"
-                startIcon={<DeleteIcon />}
-                onClick={() => onDelete(session.id)}
+                startIcon={isDeleting ? null : <DeleteIcon />}
+                onClick={handleDelete}
+                disabled={isDeleting}
               >
-                Delete
+                {isDeleting ? (
+                  <>
+                    <CircularProgress size={20} sx={{ mr: 1 }} />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete"
+                )}
               </Button>
             </Box>
           </Grid>

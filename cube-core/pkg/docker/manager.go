@@ -118,7 +118,10 @@ type Container struct {
 	ID      string
 	Image   string
 	Status  string
-	Created time.Time
+	State   string
+	Command string
+	Names   []string
+	Created int64
 	Ports   []PortInfo
 }
 
@@ -128,9 +131,15 @@ type PortInfo struct {
 	Protocol      string
 }
 
-func (dm *DockerManager) ListContainers() ([]Container, error) {
+func (dm *DockerManager) ListContainers(includeAll ...bool) ([]Container, error) {
+	// Default to showing all containers if not specified
+	all := true
+	if len(includeAll) > 0 {
+		all = includeAll[0]
+	}
+
 	containers, err := dm.client.ContainerList(dm.ctx, types.ContainerListOptions{
-		All: true,
+		All: all,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list containers: %v", err)
@@ -142,7 +151,10 @@ func (dm *DockerManager) ListContainers() ([]Container, error) {
 			ID:      c.ID,
 			Image:   c.Image,
 			Status:  c.Status,
-			Created: time.Unix(c.Created, 0),
+			State:   c.State,
+			Command: c.Command,
+			Names:   c.Names,
+			Created: c.Created,
 		}
 
 		// Parse port information

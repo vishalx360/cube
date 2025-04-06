@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/yourusername/session-manager/internal/config"
 	"github.com/yourusername/session-manager/internal/handler"
 	"github.com/yourusername/session-manager/internal/service"
@@ -42,9 +43,18 @@ func main() {
 	logger.Info("Initializing session service")
 	sessionService := service.NewSessionService(dockerManager, portManager)
 
-	// Initialize REST handler
-	logger.Info("Initializing REST handler")
+	// Initialize metrics service
+	logger.Info("Initializing metrics service")
+	metricsService, err := service.NewMetricsService(dockerManager, sessionService)
+	if err != nil {
+		logger.Error("Failed to create metrics service: %v", err)
+		log.Fatalf("Failed to create metrics service: %v", err)
+	}
+
+	// Initialize REST handlers
+	logger.Info("Initializing REST handlers")
 	restHandler := handler.NewRestHandler(sessionService)
+	metricsHandler := handler.NewMetricsHandler(metricsService)
 
 	// Create router using Chi
 	logger.Info("Creating router")
@@ -57,8 +67,24 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Timeout(60 * 1000))
 
-	// Register routes
-	restHandler.RegisterRoutes(router)
+	// Add CORS middleware
+	router.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000", "http://127.0.0.1:3000"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not caught by any browsers
+	}))
+
+	// Create an API v1 subrouter
+	logger.Info("Registering routes")
+	apiRouter := chi.NewRouter()
+	router.Mount("/api/v1", apiRouter)
+
+	// Register routes on the API v1 subrouter
+	restHandler.RegisterRoutes(apiRouter)
+	metricsHandler.RegisterRoutes(apiRouter)
 
 	// Add health check route
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {

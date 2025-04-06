@@ -755,11 +755,11 @@ const AllContainers = () => {
               </Box>
             )}
             ?
-            {deletingContainer?.is_managed && (
+            {!deletingContainer?.is_managed && (
               <Box mt={2}>
                 <Alert severity="warning">
-                  This container is managed by Cube. It's recommended to delete
-                  it through the Sessions panel instead.
+                  This container is not managed by Cube. Make sure you know what
+                  you are doing.
                 </Alert>
               </Box>
             )}

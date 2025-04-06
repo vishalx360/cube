@@ -140,28 +140,6 @@ function App() {
     }
   };
 
-  const handleDeleteSession = async (sessionId) => {
-    try {
-      setLoading(true);
-      await api.deleteSession(sessionId);
-      setSessions((prev) => prev.filter((session) => session.id !== sessionId));
-      setSnackbar({
-        open: true,
-        message: "Session deleted successfully!",
-        severity: "success",
-      });
-    } catch (err) {
-      setError("Failed to delete session");
-      setSnackbar({
-        open: true,
-        message: "Failed to delete session",
-        severity: "error",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleDeleteAllSessions = async () => {
     if (!window.confirm("Are you sure you want to delete all sessions?")) {
       return;
@@ -208,7 +186,7 @@ function App() {
         <AppBar position="static">
           <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              Cube
+              CUBE
             </Typography>
             {healthStatus !== null && (
               <Box mr={2}>
